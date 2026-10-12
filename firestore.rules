@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isHospitalAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'hospitalAdmin';
+    }
+
+    // ============================================================
+    // USERS COLLECTION
+    // ============================================================
+    match /users/{userId} {
+      // Authenticated users can read profiles
+      allow read: if isAuthenticated();
+
+      // Users can only create and update their own profile
+      allow create, update: if isOwner(userId);
+
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // DOCTORS COLLECTION (Public Directory)
+    // ============================================================
+    match /doctors/{doctorId} {
+      // Anyone can view the doctors directory
+      allow read: if true;
+
+      // Authenticated doctors/admins can manage doctor records
+      allow create, update: if isAuthenticated();
+
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // APPOINTMENTS COLLECTION
+    // ============================================================
+    match /appointments/{appointmentId} {
+      // Authenticated users can read appointments
+      // (allows checking doctor slot availability and loading patient/doctor lists)
+      allow read: if isAuthenticated();
+
+      // Authenticated users can book appointments for their own account
+      allow create: if isAuthenticated() && (
+        request.resource.data.patientUid == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid
+      );
+
+      // Patients may only cancel their own appointment or submit a payment
+      // reference. They cannot mark a payment as verified themselves.
+      function isPatientOwner() {
+        return isAuthenticated() && (
+          resource.data.patientUid == request.auth.uid ||
+          resource.data.userId == request.auth.uid
+        );
+      }
+
+      function patientCanCancel() {
+        return isPatientOwner() &&
+          request.resource.data.status == 'cancelled' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']);
+      }
+
+      function patientCanSubmitPayment() {
+        return isPatientOwner() &&
+          request.resource.data.paymentStatus == 'submitted' &&
+          resource.data.paymentStatus != 'verified' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['paymentStatus', 'paymentReference', 'paymentSubmittedAt', 'updatedAt']);
+      }
+
+      // Assigned doctors can manage appointment status and verify payments.
+      allow update: if isAuthenticated() && (
+        isHospitalAdmin() ||
+        resource.data.doctorUid == request.auth.uid ||
+        patientCanCancel() ||
+        patientCanSubmitPayment()
+      );
+
+      allow delete: if false;
+    }
+  }
+}

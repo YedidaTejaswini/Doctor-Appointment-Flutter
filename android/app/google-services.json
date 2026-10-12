@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "811708355679",
+    "project_id": "medicare-57ed1",
+    "storage_bucket": "medicare-57ed1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:811708355679:android:ce3c96b25c6ef2b5f2f7ea",
+        "android_client_info": {
+          "package_name": "com.example.doctor_appointment"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIztSlQzjPDLNvcat-Xbinif86WyPqEnc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
